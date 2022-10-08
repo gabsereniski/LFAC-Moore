@@ -1,23 +1,28 @@
+#include <iostream>
 #include <string>
 #include <map>
-#include <iostream>
 using namespace std;
 
-map<string, string> token_op = {
-    {"+", "PLUS"},
-    {"-", "MINUS"},
-    {"*", "TIMES"},
-    {"/", "DIVIDE"},
-    {"=", "ATTRIBUTION"},
+#define not_found string::npos
+#define token second
+
+enum States {Q0, Q1, Q2, Q3, Q4, Q5, Q6, Q7, Q8, Q9, TRAP};
+
+map<string, string> tkn_op = {
+    {"+",  "PLUS"},
+    {"-",  "MINUS"},
+    {"*",  "TIMES"},
+    {"/",  "DIVIDE"},
+    {"=",  "ATTRIBUTION"},
     {"==", "EQUALS"},
     {"!=", "DIFFERENT"},
-    {">", "GREATER"},
-    {"<", "LESS"},
+    {">",  "GREATER"},
+    {"<",  "LESS"},
     {">=", "GREATER_EQUAL"},
     {"<=", "LESS_EQUAL"}
 };
 
-map<string, string> token_delim = {
+map<string, string> tkn_delim = {
     {"(", "LPAREN"},
     {")", "RPAREN"},
     {"[", "LBRACK"},
@@ -28,255 +33,207 @@ map<string, string> token_delim = {
     {",", "COMMA"}
 };
 
-map<string, string> token_reserv = {
+map<string, string> tkn_reserv = {
     {"if",     "IF"},
     {"else",   "ELSE"},
     {"while",  "WHILE"},
-    {"for", "FOR"},
+    {"for",    "FOR"},
     {"int",    "INT"},
     {"float",  "FLOAT"},
     {"return", "RETURN"},
     {"void",   "VOID"}
 };
 
-string lambda = "\n\t ";
-string op = "=+-*/<>!";
-string delim = "()[]{};,";
+string blank_sym = "\n\t ";
+string op_sym =    "=+-*/<>!";
+string delim_sym = "()[]{};,";
+string num_sym =   "0123456789.";
+string alph_sym =  "abcdefghijklmnopqrstuvwxyz"
+                   "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
-string code = "float fatorial(int n){ float fat; if ( n <= 1 ) return (1); else{ return n * fatorial(n - 1); } } int main(void){ int num = 3; int res = fatorial(num); return 0; }";
+int delta_q0(string in, int &i, string &buffer)
+{
+    char sym = in[i];
 
+    if(blank_sym.find(sym) != not_found)
+    {
+        i++;
+        return Q0; // inicial
+    }
+    
+    if(alph_sym.find(sym) != not_found)
+    {
+        buffer += sym;
+        i++;
+        return Q1; // primeira letra
+    }
 
-int cur_state;
-string buff;
-char c;
+    if(num_sym.find(sym) != not_found)
+    {
+        buffer += sym;
+        i++;
+        return Q4; // primeiro numero
+    }
 
-#define trap -1;
+    if(op_sym.find(sym) != not_found)
+    {
+        buffer += sym;
+        i++;
+        return Q6; //primeiro operador
+    }
 
-void return_ID()
+    if(delim_sym.find(sym) != not_found)
+    {
+        buffer += sym;
+        i++;
+        return Q8; // delimitador
+    }
+
+    return TRAP;
+}
+
+int delta_q1(string in, int &i, string &buffer) //li uma letra
+{
+    char sym = in[i];
+
+    if((blank_sym.find(sym) != not_found)
+    || (op_sym.find(sym)    != not_found)
+    || (delim_sym.find(sym) != not_found))
+    {
+        if(tkn_reserv.find(buffer) != tkn_reserv.end())
+            return Q2; //aceita reservado
+        return Q3; // aceita id
+    }
+    
+    if((alph_sym.find(sym) != not_found)
+    || (num_sym.find(sym)  != not_found))
+    {
+        buffer += sym;
+        i++;
+        return Q1; // outras letras
+    }
+
+    return TRAP;
+}
+
+int delta_q2(string in, int &i, string &buffer) // reconhece reservado
+{
+    cout << tkn_reserv.find(buffer)->token << endl;
+    buffer.clear();
+    return 0;
+}
+
+int delta_q3(string in, int &i, string &buffer) // reconhece id
 {
     cout << "ID" << endl;
-    buff.clear();
-    cur_state = 0;
+    buffer.clear();
+    return 0;
 }
 
-void return_RESERVED()
+int delta_q4(string in, int &i, string &buffer) //li um numero
 {
-    cout << buff <<  " ";
-    cout << token_reserv.find(buff)->second << endl;
-    buff.clear();
-    cur_state = 0;
-}
+    char sym = in[i];
 
-void return_NUMBER()
-{
-    cout << buff <<  " ";
-    printf("NUMBER\n");
-    buff.clear();
-    cur_state = 0;
-}
-
-void return_DELIM()
-{
-    cout << buff <<  " ";
-    cout << token_delim.find(buff)->second << endl;
-    buff.clear();
-    cur_state = 0;
-}
-
-void return_OP()
-{
-    cout << buff <<  " ";
-    cout << token_op.find(buff)->second << endl;
-    buff.clear();
-    cur_state = 0;
-}
-
-void t0()
-{
-    if(lambda.find(c) != string::npos)
-    {
-        cur_state = 0;
-        return;
-    }
+    if((blank_sym.find(sym) != not_found)
+    || (op_sym.find(sym)    != not_found)
+    || (delim_sym.find(sym) != not_found))
+        return Q5; // aceita numero
     
-    if((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z'))
+    if(alph_sym.find(sym) != not_found)
     {
-        cur_state = 1; //letras
-        buff += c;
-        return;
+        buffer += sym;
+        i++;
+        return TRAP; // erro ao ler letra depois de numero
     }
 
-    if((c >= '0' && c <= '9') || c == '.')
+    if(num_sym.find(sym) != not_found)
     {
-        cur_state = 2; //numeros
-        buff += c;
-        return;
+        buffer += sym;
+        i++;
+        return Q4; // + numero
     }
 
-    if(op.find(c) != string::npos)
-    {
-        cur_state = 3; //operadores
-        buff += c;
-        return;
-    }
-
-    if(delim.find(c) != string::npos)
-    {
-        buff += c;
-        return_DELIM();
-        return;
-    }
-    
+    return TRAP;
 }
 
-void t1()
+int delta_q5(string in, int &i, string &buffer) // reconhece numero
 {
-    if(lambda.find(c) != string::npos) //le vazio
-    {
-        if(token_reserv.find(buff) != token_reserv.end()) return_RESERVED();
-        
-        else return_ID();
-        
-        return;
-    }
-
-    if((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')) //letra
-    {
-        cur_state = 1; // id/reserv
-        buff += c;
-        return;
-    }
-
-    if((c >= '0' && c <= '9') || c == '.') //numero
-    {
-        cur_state = 1; // id/reserv
-        buff += c;
-        return;
-    }
-
-    if(op.find(c) != string::npos) //operador
-    {
-        if(token_reserv.find(buff) != token_reserv.end())
-            return_RESERVED();
-
-        else return_ID();
-
-        buff += c;
-        cur_state = 3;
-
-        return;
-    }
-
-    if(delim.find(c) != string::npos)
-    {
-        if(token_reserv.find(buff) != token_reserv.end())
-        {
-            return_RESERVED();
-            buff += c;
-            return_DELIM();
-            
-        }
-
-        else 
-        {
-            return_ID();
-            buff += c;
-            return_DELIM();
-        }
-    }
-
+    cout << "NUMBER" << endl;
+    buffer.clear();
+    return 0;
 }
 
-void t2() //numero
+int delta_q6(string in, int &i, string &buffer) //li um operador
 {
-    if(lambda.find(c) != string::npos) //vazio
+    char sym = in[i];
+
+    if((blank_sym.find(sym) != not_found)
+    || (alph_sym.find(sym) !=  not_found)
+    || (num_sym.find(sym) !=   not_found))
+        return Q7; // aceita operador
+
+    if(op_sym.find(sym) != not_found)
     {
-        return_NUMBER();
-        return;
+        buffer += sym;
+        i++;
+        if(buffer.length() > 2) return TRAP; //nao tem operadores com mais de 2 caracteres
+        return Q6; //operador formado por + de um caracteres
     }
 
-    if((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')) //letra
-    {
-        cur_state = trap; //numero seguido de letra
-        buff += c;
-        return;
-    }
+    if(delim_sym.find(sym) != not_found)
+        return TRAP; // nao da pra ler delimitador depois de operador
 
-    if((c >= '0' && c <= '9') || c == '.') //numero
-    {
-        cur_state = 2; //continua lendo numero
-        buff += c;
-        return;
-    }
-
-    if(op.find(c) != string::npos) //operador
-    {
-        return_NUMBER();
-        buff += c;
-        cur_state = 3;
-        return;
-    }
-
-    if(delim.find(c) != string::npos) //delimitador
-    {
-        return_NUMBER();
-        buff += c;
-        return_DELIM();
-        return;
-    }
+    return TRAP;
 }
 
-void t3() //operadores
+int delta_q7(string in, int &i, string &buffer) // reconhece operador
 {
-    if(lambda.find(c) != string::npos)
-    {
-        return_OP();
-    }
+    cout << tkn_op.find(buffer)->token << endl;
+    buffer.clear();
+    return 0;
+}
 
-    if((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z'))
-    {
-        return_OP();
-        cur_state = 1; //numero seguido de letra
-        buff += c;
-        return;
-    }
+int delta_q8(string in, int &i, string &buffer)
+{
+    cout << tkn_delim.find(buffer)->token << endl;
+    buffer.clear();
+    return 0;
+}
 
-    if((c >= '0' && c <= '9') || c == '.')
-    {
-        return_OP();
-        cur_state = 2; //continua lendo numero
-        buff += c;
-        return;
-    }
-
-    if(op.find(c) != string::npos)
-    {
-        cur_state = 3;
-        buff += c;
-        return;
-    }
-
-    if(delim.find(c) != string::npos)
-    {
-        return_OP();
-        cur_state = trap;
-        return;
-    }
+int delta_tp(string in, int &i, string &buffer)
+{
+    buffer += in[i];
+    i++;
+    return TRAP; // estado de erro
 }
 
 
 int main()
 {
-    cur_state = 0;
-    for(int i = 0; i < code.length(); i++)
-    {       
-        c = code[i];
+    string code = "float fatorial(int n){ float fat; if ( n <= 1 ) return (1); else{ return n * fatorial(n - 1); } } int main(void){ int num = 3; int res = fatorial(num); return 0; }";
+
+    int i = 0;
+    int cur_state = Q0;
+    string buffer;
+
+    bool ended = false;
+
+    while(!ended)
+    {
+        if(i == code.length()) ended = true;
+        
         switch(cur_state)
         {
-            case 0: t0(); break;
-            case 1: t1(); break;
-            case 2: t2(); break;
-            case 3: t3(); break;
-        }     
+            case Q0: cur_state = delta_q0(code, i, buffer); break;
+            case Q1: cur_state = delta_q1(code, i, buffer); break;
+            case Q2: cur_state = delta_q2(code, i, buffer); break;
+            case Q3: cur_state = delta_q3(code, i, buffer); break;
+            case Q4: cur_state = delta_q4(code, i, buffer); break;
+            case Q5: cur_state = delta_q5(code, i, buffer); break;
+            case Q6: cur_state = delta_q6(code, i, buffer); break;
+            case Q7: cur_state = delta_q7(code, i, buffer); break;
+            case Q8: cur_state = delta_q8(code, i, buffer); break;
+            default: cur_state = delta_tp(code, i, buffer); break;
+        }
     }
 }
