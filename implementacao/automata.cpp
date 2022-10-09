@@ -1,48 +1,15 @@
 #include <iostream>
+#include <sstream>
+#include <fstream>
 #include <string>
 #include <map>
 using namespace std;
 
-#define not_found string::npos
 #define token second
 
-enum States {Q0, Q1, Q2, Q3, Q4, Q5, Q6, Q7, Q8, Q9, TRAP};
+bool trapped = 0;
 
-map<string, string> tkn_op = {
-    {"+",  "PLUS"},
-    {"-",  "MINUS"},
-    {"*",  "TIMES"},
-    {"/",  "DIVIDE"},
-    {"=",  "ATTRIBUTION"},
-    {"==", "EQUALS"},
-    {"!=", "DIFFERENT"},
-    {">",  "GREATER"},
-    {"<",  "LESS"},
-    {">=", "GREATER_EQUAL"},
-    {"<=", "LESS_EQUAL"}
-};
-
-map<string, string> tkn_delim = {
-    {"(", "LPAREN"},
-    {")", "RPAREN"},
-    {"[", "LBRACK"},
-    {"]", "RBRACK"},
-    {"{", "LBRACE"},
-    {"}", "RBRACE"},
-    {";", "SEMICOLON"},
-    {",", "COMMA"}
-};
-
-map<string, string> tkn_reserv = {
-    {"if",     "IF"},
-    {"else",   "ELSE"},
-    {"while",  "WHILE"},
-    {"for",    "FOR"},
-    {"int",    "INT"},
-    {"float",  "FLOAT"},
-    {"return", "RETURN"},
-    {"void",   "VOID"}
-};
+enum States {Q0, Q1, Q2, Q3, Q4, Q5, Q6, Q7, Q8, TRAP};
 
 string blank_sym = "\n\t ";
 string op_sym =    "=+-*/<>!";
@@ -51,38 +18,76 @@ string num_sym =   "0123456789.";
 string alph_sym =  "abcdefghijklmnopqrstuvwxyz"
                    "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
-int delta_q0(string in, int &i, string &buffer)
+map<string, string> operators = {
+    { "+", "PLUS"         },
+    { "-", "MINUS"        },
+    { "*", "TIMES"        },
+    { "/", "DIVIDE"       },
+    { "=", "ATTRIBUTION"  },
+    {"==", "EQUALS"       },
+    {"!=", "DIFFERENT"    },
+    { ">", "GREATER"      },
+    { "<", "LESS"         },
+    {">=", "GREATER_EQUAL"},
+    {"<=", "LESS_EQUAL"   }
+};
+
+map<string, string> delimiters = {
+    {";", "SEMICOLON"},
+    {",", "COMMA"    },
+    {"(", "LPAREN"   },
+    {")", "RPAREN"   },
+    {"[", "LBRACK"   },
+    {"]", "RBRACK"   },
+    {"{", "LBRACE"   },
+    {"}", "RBRACE"   }
+};
+
+map<string, string> reserved_words = {
+    {    "if", "IF"    },
+    {  "else", "ELSE"  },
+    { "while", "WHILE" },
+    {   "for", "FOR"   },
+    {   "int", "INT"   },
+    { "float", "FLOAT" },
+    {"return", "RETURN"},
+    {  "void", "VOID"  }
+};
+
+bool valid(string list, char sym){ return list.find(sym) != string::npos; }
+
+int q0(string in, int &i, string &buffer)
 {
     char sym = in[i];
 
-    if(blank_sym.find(sym) != not_found)
+    if(valid(blank_sym, sym))
     {
         i++;
         return Q0; // inicial
     }
     
-    if(alph_sym.find(sym) != not_found)
+    if(valid(alph_sym, sym))
     {
         buffer += sym;
         i++;
         return Q1; // primeira letra
     }
 
-    if(num_sym.find(sym) != not_found)
+    if(valid(num_sym, sym))
     {
         buffer += sym;
         i++;
         return Q4; // primeiro numero
     }
 
-    if(op_sym.find(sym) != not_found)
+    if(valid(op_sym, sym))
     {
         buffer += sym;
         i++;
         return Q6; //primeiro operador
     }
 
-    if(delim_sym.find(sym) != not_found)
+    if(valid(delim_sym, sym))
     {
         buffer += sym;
         i++;
@@ -92,21 +97,18 @@ int delta_q0(string in, int &i, string &buffer)
     return TRAP;
 }
 
-int delta_q1(string in, int &i, string &buffer) //li uma letra
+int q1(string in, int &i, string &buffer) //li uma letra
 {
     char sym = in[i];
 
-    if((blank_sym.find(sym) != not_found)
-    || (op_sym.find(sym)    != not_found)
-    || (delim_sym.find(sym) != not_found))
+    if(valid(blank_sym, sym)||valid(op_sym, sym)||valid(delim_sym, sym))
     {
-        if(tkn_reserv.find(buffer) != tkn_reserv.end())
+        if(reserved_words.find(buffer) != reserved_words.end())
             return Q2; //aceita reservado
         return Q3; // aceita id
     }
     
-    if((alph_sym.find(sym) != not_found)
-    || (num_sym.find(sym)  != not_found))
+    if(valid(alph_sym, sym)||valid(num_sym, sym))
     {
         buffer += sym;
         i++;
@@ -116,37 +118,35 @@ int delta_q1(string in, int &i, string &buffer) //li uma letra
     return TRAP;
 }
 
-int delta_q2(string in, int &i, string &buffer) // reconhece reservado
+int q2(string in, int &i, string &buffer) // reconhece reservado
 {
-    cout << tkn_reserv.find(buffer)->token << endl;
+    cout << reserved_words.find(buffer)->token << endl;
     buffer.clear();
-    return 0;
+    return Q0;
 }
 
-int delta_q3(string in, int &i, string &buffer) // reconhece id
+int q3(string in, int &i, string &buffer) // reconhece id
 {
     cout << "ID" << endl;
     buffer.clear();
-    return 0;
+    return Q0;
 }
 
-int delta_q4(string in, int &i, string &buffer) //li um numero
+int q4(string in, int &i, string &buffer) //li um numero
 {
     char sym = in[i];
 
-    if((blank_sym.find(sym) != not_found)
-    || (op_sym.find(sym)    != not_found)
-    || (delim_sym.find(sym) != not_found))
+    if(valid(blank_sym, sym)||valid(op_sym, sym)||valid(delim_sym, sym))
         return Q5; // aceita numero
     
-    if(alph_sym.find(sym) != not_found)
+    if(valid(alph_sym, sym))
     {
         buffer += sym;
         i++;
         return TRAP; // erro ao ler letra depois de numero
     }
 
-    if(num_sym.find(sym) != not_found)
+    if(valid(num_sym, sym))
     {
         buffer += sym;
         i++;
@@ -156,23 +156,21 @@ int delta_q4(string in, int &i, string &buffer) //li um numero
     return TRAP;
 }
 
-int delta_q5(string in, int &i, string &buffer) // reconhece numero
+int q5(string in, int &i, string &buffer) // reconhece numero
 {
     cout << "NUMBER" << endl;
     buffer.clear();
-    return 0;
+    return Q0;
 }
 
-int delta_q6(string in, int &i, string &buffer) //li um operador
+int q6(string in, int &i, string &buffer) //li um operador
 {
     char sym = in[i];
 
-    if((blank_sym.find(sym) != not_found)
-    || (alph_sym.find(sym) !=  not_found)
-    || (num_sym.find(sym) !=   not_found))
+    if(valid(blank_sym, sym)||valid(alph_sym, sym)||valid(num_sym, sym))
         return Q7; // aceita operador
 
-    if(op_sym.find(sym) != not_found)
+    if(valid(op_sym, sym))
     {
         buffer += sym;
         i++;
@@ -180,37 +178,59 @@ int delta_q6(string in, int &i, string &buffer) //li um operador
         return Q6; //operador formado por + de um caracteres
     }
 
-    if(delim_sym.find(sym) != not_found)
+    if(valid(delim_sym, sym))
         return TRAP; // nao da pra ler delimitador depois de operador
 
     return TRAP;
 }
 
-int delta_q7(string in, int &i, string &buffer) // reconhece operador
+int q7(string in, int &i, string &buffer) // reconhece operador
 {
-    cout << tkn_op.find(buffer)->token << endl;
+    cout << operators.find(buffer)->token << endl;
     buffer.clear();
-    return 0;
+    return Q0;
 }
 
-int delta_q8(string in, int &i, string &buffer)
+int q8(string in, int &i, string &buffer)
 {
-    cout << tkn_delim.find(buffer)->token << endl;
+    cout << delimiters.find(buffer)->token << endl;
     buffer.clear();
-    return 0;
+    return Q0;
 }
 
-int delta_tp(string in, int &i, string &buffer)
+int tp(string in, int &i, string &buffer)
 {
     buffer += in[i];
     i++;
+
+    if(!trapped) 
+    {
+        cout << "----- TRAP -----" << endl;
+        trapped = true;
+    }
+
     return TRAP; // estado de erro
 }
 
+typedef int(*next_state)(string, int &, string &);
 
 int main()
 {
-    string code = "float fatorial(int n){ float fat; if ( n <= 1 ) return (1); else{ return n * fatorial(n - 1); } } int main(void){ int num = 3; int res = fatorial(num); return 0; }";
+    next_state delta[] = {&q0, &q1, &q2, &q3, &q4, &q5, &q6, &q7, &q8, &tp}; 
+
+    string file_name;
+    cin >> file_name;
+    ifstream file(file_name);
+   
+    if(!file.good())
+    {
+        cout << "erro\n";
+        return 0;
+    }
+    
+    stringstream code_buffer;
+    code_buffer << file.rdbuf();
+    string code = code_buffer.str();
 
     int i = 0;
     int cur_state = Q0;
@@ -222,18 +242,6 @@ int main()
     {
         if(i == code.length()) ended = true;
         
-        switch(cur_state)
-        {
-            case Q0: cur_state = delta_q0(code, i, buffer); break;
-            case Q1: cur_state = delta_q1(code, i, buffer); break;
-            case Q2: cur_state = delta_q2(code, i, buffer); break;
-            case Q3: cur_state = delta_q3(code, i, buffer); break;
-            case Q4: cur_state = delta_q4(code, i, buffer); break;
-            case Q5: cur_state = delta_q5(code, i, buffer); break;
-            case Q6: cur_state = delta_q6(code, i, buffer); break;
-            case Q7: cur_state = delta_q7(code, i, buffer); break;
-            case Q8: cur_state = delta_q8(code, i, buffer); break;
-            default: cur_state = delta_tp(code, i, buffer); break;
-        }
+        cur_state = (*delta[cur_state])(code, i, buffer);
     }
 }
