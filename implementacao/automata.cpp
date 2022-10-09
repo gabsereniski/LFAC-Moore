@@ -214,34 +214,37 @@ int tp(string in, int &i, string &buffer)
 
 typedef int(*next_state)(string, int &, string &);
 
-int main()
+int main(int argc, char *argv[])
 {
+    if(argc < 3)
+    {
+        cout << "Uso: <arquivo_entrada> <arquivo_saida>\n";
+        exit(0);
+    }
+    
     next_state delta[] = {&q0, &q1, &q2, &q3, &q4, &q5, &q6, &q7, &q8, &tp}; 
 
-    string file_name;
-    cin >> file_name;
-    ifstream file(file_name);
+    ifstream file(argv[1]);
    
     if(!file.good())
     {
-        cout << "erro\n";
-        return 0;
+        cout << "Arquivo de entrada invalido.\n";
+        exit(0);
     }
-    
-    stringstream code_buffer;
-    code_buffer << file.rdbuf();
-    string code = code_buffer.str();
+   
+    stringstream code_stream;
+    code_stream << file.rdbuf();
+    string code = code_stream.str();
+    freopen(argv[2], "w", stdout);
 
-    int i = 0;
+    int index = 0;
     int cur_state = Q0;
     string buffer;
 
     bool ended = false;
-
     while(!ended)
     {
-        if(i == code.length()) ended = true;
-        
-        cur_state = (*delta[cur_state])(code, i, buffer);
+        if(index == code.length()) ended = true;
+        cur_state = (*delta[cur_state])(code, index, buffer);
     }
 }
