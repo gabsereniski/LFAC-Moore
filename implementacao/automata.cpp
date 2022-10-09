@@ -120,7 +120,7 @@ int q1(string in, int &i, string &buffer) //li uma letra
 
 int q2(string in, int &i, string &buffer) // reconhece reservado
 {
-    cout << reserved_words.find(buffer)->token << endl;
+    cout << reserved_words[buffer] << endl;
     buffer.clear();
     return Q0;
 }
@@ -186,14 +186,14 @@ int q6(string in, int &i, string &buffer) //li um operador
 
 int q7(string in, int &i, string &buffer) // reconhece operador
 {
-    cout << operators.find(buffer)->token << endl;
+    cout << operators[buffer] << endl;
     buffer.clear();
     return Q0;
 }
 
 int q8(string in, int &i, string &buffer)
 {
-    cout << delimiters.find(buffer)->token << endl;
+    cout << delimiters[buffer] << endl;
     buffer.clear();
     return Q0;
 }
