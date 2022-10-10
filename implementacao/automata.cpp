@@ -58,144 +58,136 @@ map<string, string> reserved_words = {
     {  "void", "VOID"  }
 };
 
-state q0(in &sym, string &buffer)
+state q0(in &cur_sym, string &buffer)
 {
-    if(valid(blank_sym, *sym))
+    if(valid(blank_sym, *cur_sym))
     {
-        sym++;
+        cur_sym++;
         return Q0; // inicial
     }
     
-    if(valid(alph_sym, *sym))
+    if(valid(alph_sym, *cur_sym))
     {
-        buffer += *(sym++);
+        buffer += *(cur_sym++);
         return Q1; // primeira letra
     }
 
-    if(valid(num_sym, *sym))
+    if(valid(num_sym, *cur_sym))
     {
-        buffer += *(sym++);
+        buffer += *(cur_sym++);
         return Q4; // primeiro numero
     }
 
-    if(valid(op_sym, *sym))
+    if(valid(op_sym, *cur_sym))
     {
-        buffer += *(sym++);
-        return Q6; //primeiro operador
+        buffer += *(cur_sym++);
+        return Q6; // primeiro operador
     }
 
-    if(valid(delim_sym, *sym))
+    if(valid(delim_sym, *cur_sym))
     {
-        buffer += *(sym++);
+        buffer += *(cur_sym++);
         return Q8; // delimitador
     }
 
     return TRAP;
 }
 
-state q1(in &sym, string &buffer) //li uma letra
+state q1(in &cur_sym, string &buffer) // primeiro caracter eh letra
 {
-    if(valid(blank_sym, *sym)||valid(op_sym, *sym)||valid(delim_sym, *sym))
+    if(valid(blank_sym, *cur_sym)||valid(op_sym, *cur_sym)||valid(delim_sym, *cur_sym))
     {
         if(reserved_words.find(buffer) != reserved_words.end())
-            return Q2; //aceita reservado
-        return Q3; // aceita id
+            return Q2; // vai pra estado que reconhece reservado
+        return Q3; // vai pra estado que reconhece id
     }
     
-    if(valid(alph_sym, *sym)||valid(num_sym, *sym))
+    if(valid(alph_sym, *cur_sym)||valid(num_sym, *cur_sym))
     {
-        buffer += *(sym++);
-        return Q1; // outras letras
+        buffer += *(cur_sym++);
+        return Q1; // outras letras ou numeros
     }
 
     return TRAP;
 }
 
-state q2(in &sym, string &buffer) // reconhece reservado
+state q2(in &cur_sym, string &buffer) // RESERVADO
 {
     output << reserved_words[buffer] << endl;
     buffer.clear();
     return Q0;
 }
 
-state q3(in &sym, string &buffer) // reconhece id
+state q3(in &cur_sym, string &buffer) // ID
 {
     output << "ID" << endl;
     buffer.clear();
     return Q0;
 }
 
-state q4(in &sym, string &buffer) //li um numero
+state q4(in &cur_sym, string &buffer) // primeiro caracter eh numero
 {
-    if(valid(blank_sym, *sym)||valid(op_sym, *sym)||valid(delim_sym, *sym))
-        return Q5; // aceita numero
+    if(valid(blank_sym, *cur_sym)||valid(op_sym, *cur_sym)||valid(delim_sym, *cur_sym))
+        return Q5; // vai pra estado que reconhece numero
     
-    if(valid(alph_sym, *sym))
+    if(valid(alph_sym, *cur_sym))
     {
-        buffer += *(sym++);
-        return TRAP; // erro ao ler letra depois de numero
+        buffer += *(cur_sym++);
+        return TRAP; // vai pra estado de erro ao ler letra depois de numero
     }
 
-    if(valid(num_sym, *sym))
+    if(valid(num_sym, *cur_sym))
     {
-        buffer += *(sym++);
-        return Q4; // + numero
+        buffer += *(cur_sym++);
+        return Q4; // continua lendo numeros
     }
 
     return TRAP;
 }
 
-state q5(in &sym, string &buffer) // reconhece numero
+state q5(in &cur_sym, string &buffer) // NUMERO
 {
     output << "NUMBER" << endl;
     buffer.clear();
     return Q0;
 }
 
-state q6(in &sym, string &buffer) //li um operador
+state q6(in &cur_sym, string &buffer) // primeiro caracter eh operador
 {
-    if(valid(blank_sym, *sym)||valid(alph_sym, *sym)||valid(num_sym, *sym))
-        return Q7; // aceita operador
+    if(valid(blank_sym, *cur_sym)||valid(alph_sym, *cur_sym)||valid(num_sym, *cur_sym))
+        return Q7; // vai pra estado que reconhece operador
 
-    if(valid(op_sym, *sym))
+    if(valid(op_sym, *cur_sym))
     {
-        buffer += *(sym++);
-        if(buffer.length() > 2) return TRAP; //nao tem operadores com mais de 2 caracteres
-        return Q6; //operador formado por + de um caracteres
+        buffer += *(cur_sym++);
+        if(buffer.length() > 2) return TRAP; // erro ao ler + de 2 caracteres
+        return Q6; // operador formado por + de 1 caracter
     }
 
-    if(valid(delim_sym, *sym))
-        return TRAP; // nao da pra ler delimitador depois de operador
+    if(valid(delim_sym, *cur_sym))
+        return TRAP; // erro ao ler delimitador depois de operador
 
     return TRAP;
 }
 
-state q7(in &sym, string &buffer) // reconhece operador
+state q7(in &cur_sym, string &buffer) // OPERADOR
 {
     output << operators[buffer] << endl;
     buffer.clear();
     return Q0;
 }
 
-state q8(in &sym, string &buffer)
+state q8(in &cur_sym, string &buffer) // DELIMITADOR
 {
     output << delimiters[buffer] << endl;
     buffer.clear();
     return Q0;
 }
 
-bool trapped = false;
-state tp(in &sym, string &buffer)
+state tp(in &cur_sym, string &buffer) // estado de erro
 {
-    buffer += *(sym++);
-
-    if(!trapped) 
-    {
-        output << "ERROR: TRAP REACHED" << endl;
-        trapped = true;
-    }
-
-    return TRAP; // estado de erro
+    buffer += *(cur_sym++); // consome fita de entrada
+    return TRAP; // se mantem no erro ate fim da entrada
 }
 
 typedef state(*next_state)(in &, string &);
@@ -221,13 +213,14 @@ int main(int argc, char *argv[])
     if(!output.good())
     {
         cout << "Error handling output file.\n";
+        remove(strcat(argv[2], ".txt"));
         exit(0);
     }
    
     stringstream codestream;
     codestream << input.rdbuf();
     string code(codestream.str());
-    in sym = code.begin();
+    in cur_sym = code.begin();
 
     state cur_state = Q0, end_state = TRAP;
     string buffer;
@@ -237,13 +230,13 @@ int main(int argc, char *argv[])
     bool ended = false;
     while(!ended)
     {
-        if(sym == code.end())
+        if(cur_sym == code.end())
         {
             ended = true;
             end_state = cur_state;
         }
 
-        cur_state = (*delta[cur_state])(sym, buffer);
+        cur_state = (*delta[cur_state])(cur_sym, buffer);
     }
 
     if(end_state != Q0) cout << "INPUT REJECTED\n";
