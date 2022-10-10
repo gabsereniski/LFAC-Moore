@@ -7,9 +7,10 @@ using namespace std;
 
 #define token second
 
-bool trapped = 0;
+ifstream input;
+ofstream output;
 
-enum States {Q0, Q1, Q2, Q3, Q4, Q5, Q6, Q7, Q8, TRAP};
+enum state {Q0, Q1, Q2, Q3, Q4, Q5, Q6, Q7, Q8, TRAP};
 
 string blank_sym = "\n\t ";
 string op_sym =    "=+-*/<>!";
@@ -56,7 +57,7 @@ map<string, string> reserved_words = {
 
 bool valid(string list, char sym){ return list.find(sym) != string::npos; }
 
-int q0(string in, int &i, string &buffer)
+state q0(string in, int &i, string &buffer)
 {
     char sym = in[i];
 
@@ -97,7 +98,7 @@ int q0(string in, int &i, string &buffer)
     return TRAP;
 }
 
-int q1(string in, int &i, string &buffer) //li uma letra
+state q1(string in, int &i, string &buffer) //li uma letra
 {
     char sym = in[i];
 
@@ -118,21 +119,21 @@ int q1(string in, int &i, string &buffer) //li uma letra
     return TRAP;
 }
 
-int q2(string in, int &i, string &buffer) // reconhece reservado
+state q2(string in, int &i, string &buffer) // reconhece reservado
 {
-    cout << reserved_words[buffer] << endl;
+    output << reserved_words[buffer] << endl;
     buffer.clear();
     return Q0;
 }
 
-int q3(string in, int &i, string &buffer) // reconhece id
+state q3(string in, int &i, string &buffer) // reconhece id
 {
-    cout << "ID" << endl;
+    output << "ID" << endl;
     buffer.clear();
     return Q0;
 }
 
-int q4(string in, int &i, string &buffer) //li um numero
+state q4(string in, int &i, string &buffer) //li um numero
 {
     char sym = in[i];
 
@@ -156,14 +157,14 @@ int q4(string in, int &i, string &buffer) //li um numero
     return TRAP;
 }
 
-int q5(string in, int &i, string &buffer) // reconhece numero
+state q5(string in, int &i, string &buffer) // reconhece numero
 {
-    cout << "NUMBER" << endl;
+    output << "NUMBER" << endl;
     buffer.clear();
     return Q0;
 }
 
-int q6(string in, int &i, string &buffer) //li um operador
+state q6(string in, int &i, string &buffer) //li um operador
 {
     char sym = in[i];
 
@@ -184,35 +185,36 @@ int q6(string in, int &i, string &buffer) //li um operador
     return TRAP;
 }
 
-int q7(string in, int &i, string &buffer) // reconhece operador
+state q7(string in, int &i, string &buffer) // reconhece operador
 {
-    cout << operators[buffer] << endl;
+    output << operators[buffer] << endl;
     buffer.clear();
     return Q0;
 }
 
-int q8(string in, int &i, string &buffer)
+state q8(string in, int &i, string &buffer)
 {
-    cout << delimiters[buffer] << endl;
+    output << delimiters[buffer] << endl;
     buffer.clear();
     return Q0;
 }
 
-int tp(string in, int &i, string &buffer)
+bool trapped = false;
+state tp(string in, int &i, string &buffer)
 {
     buffer += in[i];
     i++;
 
     if(!trapped) 
     {
-        cout << "----- TRAP -----" << endl;
+        output << "----- TRAP -----" << endl;
         trapped = true;
     }
 
     return TRAP; // estado de erro
 }
 
-typedef int(*next_state)(string, int &, string &);
+typedef state(*next_state)(string, int &, string &);
 
 int main(int argc, char *argv[])
 {
@@ -221,30 +223,44 @@ int main(int argc, char *argv[])
         cout << "Uso: <arquivo_entrada> <arquivo_saida>\n";
         exit(0);
     }
-    
-    next_state delta[] = {&q0, &q1, &q2, &q3, &q4, &q5, &q6, &q7, &q8, &tp}; 
 
-    ifstream file(argv[1]);
+    input.open(argv[1]);
+    output.open(argv[2]);
    
-    if(!file.good())
+    if(!input.good())
     {
         cout << "Arquivo de entrada invalido.\n";
         exit(0);
     }
+
+    if(!output.good())
+    {
+        cout << "Arquivo de saida com problema.\n";
+        exit(0);
+    }
    
-    stringstream code_stream;
-    code_stream << file.rdbuf();
-    string code = code_stream.str();
-    freopen(argv[2], "w", stdout);
+    stringstream code;
+    code << input.rdbuf();
+
+    next_state delta[] = {&q0, &q1, &q2, &q3, &q4, &q5, &q6, &q7, &q8, &tp}; 
 
     int index = 0;
-    int cur_state = Q0;
+    state cur_state = Q0;
+    state end_state = TRAP;
     string buffer;
 
     bool ended = false;
     while(!ended)
     {
-        if(index == code.length()) ended = true;
-        cur_state = (*delta[cur_state])(code, index, buffer);
+        if(index == code.str().length())
+        {
+            ended = true;
+            end_state = cur_state;
+        }
+
+        cur_state = (*delta[cur_state])(code.str(), index, buffer);
     }
+
+    if(end_state != Q0) cout << "INPUT REJECTED\n";
+    else                cout << "INPUT ACCEPTED\n";
 }
